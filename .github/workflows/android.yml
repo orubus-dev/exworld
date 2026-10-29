@@ -21,7 +21,7 @@ jobs:
       - name: Checkout EXGINE
         uses: actions/checkout@v4
         with:
-          repository: benjaminchume-droid/exgine
+          repository: orubus-dev/exgine
           path: exgine
 
       - name: Bake real 3D mesh packages into content/baked

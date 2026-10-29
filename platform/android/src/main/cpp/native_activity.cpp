@@ -3,6 +3,7 @@
 
 #include "exgine/android.hpp"
 #include "exgine/android_audio.hpp"
+#include "exgine/engine.hpp"
 #include "exgine/mobile.hpp"
 #include "exgine/render.hpp"
 #include "exgine/asset.hpp"
@@ -70,18 +71,70 @@ bool resolve_and_load(AAssetManager* m, const exgine::AssetDatabase* package, st
     return false;
 }
 
+// On-device error screen used when boot fails — NEVER a silent black screen.
+struct FatalScreen {
+    std::unique_ptr<exgine::Engine> engine;
+    exworld::UiRenderer ui;
+    bool ready = false;
+
+    bool init() {
+        const std::string dsl =
+            "game EXWORLD { world Fatal { terrain T { amplitude = 0 seed = 1 } } }";
+        engine = std::make_unique<exgine::Engine>();
+        if (!engine->load(exgine::SourceText{dsl})) return false;
+        auto& rt = engine->runtime();
+        exgine::Camera cam;
+        cam.position = {0, 0, 0};
+        cam.rotation = {0, 0, 0};
+        cam.vertical_fov_degrees = 58.f;
+        cam.near_plane = 0.1f;
+        cam.far_plane = 100.f;
+        if (!rt.set_main_camera(cam)) return false;
+        ready = ui.init(rt);
+        return ready;
+    }
+
+    void draw(exgine::AndroidEglPresenter& presenter, const std::string& msg,
+              float width, float height) {
+        if (!ready && !init()) {
+            exgine::RenderFrame frame;
+            frame.config = {exgine::RenderBackend::OpenGLES,
+                            static_cast<std::uint32_t>(width),
+                            static_cast<std::uint32_t>(height), true, true, 256, 128};
+            (void)presenter.present(frame);
+            return;
+        }
+        auto& rt = engine->runtime();
+        ui.begin(rt.lighting().main_camera(), width, height);
+        const float cw = ui.canvas_w(), ch = ui.canvas_h();
+        ui.rect(0.f, 0.f, cw, ch, exworld::UiColor::Black);
+        ui.text(cw * 0.5f, 300.f, 60.f, "BOOT ERROR", exworld::UiColor::Red, true, true);
+        ui.text(cw * 0.5f, 430.f, 26.f, msg, exworld::UiColor::White, true, true);
+        ui.text(cw * 0.5f, 520.f, 24.f, "CLOSE AND REOPEN THE APP", exworld::UiColor::Dim,
+                true, true);
+        ui.end(rt);
+
+        exgine::Renderer renderer({exgine::RenderBackend::OpenGLES,
+                                   static_cast<std::uint32_t>(width),
+                                   static_cast<std::uint32_t>(height), true, true, 256, 128});
+        exgine::RenderFrame frame;
+        if (renderer.build_frame(rt, frame) && renderer.validate(frame))
+            (void)presenter.present(frame);
+    }
+};
+
 struct AppState {
     exgine::AndroidEglPresenter presenter;
     exgine::MobileRuntimeBridge mobile;
     std::unique_ptr<exgine::AndroidAudioBackend> audio;
     std::unique_ptr<exworld::ExWorldGame> game;
+    FatalScreen fatal;
     AAssetManager* assets = nullptr;
     exgine::AssetDatabase package;
     bool package_loaded = false;
     int width = 1280;
     int height = 720;
     double previous_time = 0;
-    bool started = false;
     bool boot_ok = false;
     bool boot_attempted = false;
     std::string boot_error;
@@ -182,7 +235,6 @@ void handle_cmd(android_app* app, int32_t cmd) {
     case APP_CMD_STOP:
         s->mobile.on_stop();
         if (s->audio) s->audio->stop();
-        s->started = false;
         break;
     case APP_CMD_INIT_WINDOW:
         if (app->window && s->presenter.attach(app->window)) {
@@ -240,6 +292,8 @@ void android_main(android_app* app) {
         if (!state->boot_attempted && state->mobile.renderable() && state->presenter.ready()) {
             state->boot_attempted = true;
             state->boot_ok = boot_game(*state);
+            if (!state->boot_ok)
+                LOGE("Boot failed: %s — showing error screen", state->boot_error.c_str());
         }
         if (!state->mobile.renderable() || !state->presenter.ready()) continue;
 
@@ -248,17 +302,21 @@ void android_main(android_app* app) {
                               ? std::clamp(now - state->previous_time, 0.0, 0.05) : 1.0 / 60.0;
         state->previous_time = now;
         if (state->mobile.begin_frame(now).state == exgine::MobileFrameState::Paused) continue;
-        if (!state->boot_ok) continue;
 
-        if (!state->started) {
-            try { state->started = state->game && state->game->start(); }
-            catch (...) { state->started = false; }
-            if (!state->started) continue;
-            LOGI("game started");
+        const float wf = static_cast<float>(state->width > 0 ? state->width : 1280);
+        const float hf = static_cast<float>(state->height > 0 ? state->height : 720);
+
+        if (state->boot_ok && state->game) {
+            try {
+                if (state->game->update(dt))
+                    (void)state->game->present(state->presenter, state->width, state->height);
+            } catch (const std::exception& e) {
+                LOGE("frame exception: %s", e.what());
+            } catch (...) {
+                LOGE("frame unknown exception");
+            }
+        } else {
+            state->fatal.draw(state->presenter, state->boot_error, wf, hf);
         }
-        try {
-            if (state->game && state->game->update(dt))
-                (void)state->game->present(state->presenter, state->width, state->height);
-        } catch (...) {}
     }
 }

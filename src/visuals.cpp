@@ -171,9 +171,11 @@ bool VisualSystem::ensure_character(exgine::Runtime& runtime, exgine::EntityId i
 }
 
 bool VisualSystem::ensure_ground(exgine::Runtime& runtime, const exgine::Vec3& at) {
+    // Safety-net plate under the whole playable area. The procedural city
+    // (CityGenerator) draws its own roads, sidewalks and lots on top.
     if (ground_ == exgine::invalid_entity) ground_ = spawn_prop(runtime, "GroundPlate");
     if (!ground_) return false;
-    set_entity_pos(runtime, ground_, at.x, -0.08f, at.z);
+    set_entity_pos(runtime, ground_, at.x, -0.10f, at.z);
 
     bool attached_baked = false;
     if (packages_) {
@@ -181,33 +183,16 @@ bool VisualSystem::ensure_ground(exgine::Runtime& runtime, const exgine::Vec3& a
         attached_baked = baked_assembly(packages_->get("ground"), "asphalt", baked) &&
                          runtime.attach_geometry(ground_, std::move(baked));
     }
-    if (!attached_baked && !runtime.attach_geometry(ground_, box_mesh({800.f, 0.16f, 800.f}, "asphalt")))
+    if (!attached_baked && !runtime.attach_geometry(ground_, box_mesh({1300.f, 0.16f, 1300.f}, "asphalt")))
         return false;
-
-    if (ground_grass_ == exgine::invalid_entity) ground_grass_ = spawn_prop(runtime, "GroundGrass");
-    if (ground_grass_) {
-        set_entity_pos(runtime, ground_grass_, at.x + 220.f, -0.06f, at.z + 180.f);
-        (void)runtime.attach_geometry(ground_grass_, box_mesh({420.f, 0.12f, 420.f}, "grass"));
-    }
-
-    if (ground_water_ == exgine::invalid_entity) ground_water_ = spawn_prop(runtime, "GroundWater");
-    if (ground_water_) {
-        set_entity_pos(runtime, ground_water_, at.x - 280.f, -0.4f, at.z - 200.f);
-        (void)runtime.attach_geometry(ground_water_, box_mesh({300.f, 0.4f, 300.f}, "water"));
-    }
     return true;
 }
 
 bool VisualSystem::ensure_hud_entities(exgine::Runtime& runtime) {
-    auto make = [&](exgine::EntityId& slot, const char* name, float w, float h) {
-        if (slot == exgine::invalid_entity) slot = spawn_prop(runtime, name);
-        if (!slot) return false;
-        return runtime.attach_geometry(slot, quad_mesh(w, h, "hud"));
-    };
-    return make(hud_move_, "HUD_MoveStick", 0.55f, 0.55f) &&
-           make(hud_look_, "HUD_LookStick", 0.50f, 0.50f) &&
-           make(hud_interact_, "HUD_Interact", 0.42f, 0.28f) &&
-           make(hud_exit_, "HUD_Exit", 0.42f, 0.28f);
+    // Touch controls and all HUD chrome are drawn by UiRenderer (world-space
+    // quad batches). The old per-entity HUD quads are retired.
+    (void)runtime;
+    return true;
 }
 
 bool VisualSystem::ensure_buildings_vehicles(exgine::Runtime& runtime) {
@@ -262,39 +247,10 @@ bool VisualSystem::bootstrap(exgine::Runtime& runtime, exgine::EntityId player) 
     return true;
 }
 
-void VisualSystem::update_hud_markers(exgine::Runtime& runtime, const exgine::Camera& cam,
+void VisualSystem::update_hud_markers(exgine::Runtime& runtime, const exgine::Camera& /*cam*/,
                                       const HudLayout& /*layout*/, int /*sw*/, int /*sh*/) {
-    if (!ready_) return;
-
-    const float dist = 2.6f;
-    const float cy = std::cos(cam.rotation.y);
-    const float sy = std::sin(cam.rotation.y);
-    const float cp = std::cos(cam.rotation.x);
-    const float sp = std::sin(cam.rotation.x);
-    const float fx = sy * cp;
-    const float fy = -sp;
-    const float fz = cy * cp;
-    const float rx = cy;
-    const float rz = -sy;
-    const float ux = -sy * sp;
-    const float uy = cp;
-    const float uz = -cy * sp;
-
-    auto place = [&](exgine::EntityId id, float ndc_x, float ndc_y) {
-        if (!id) return;
-        const float ox = ndc_x * 1.25f;
-        const float oy = ndc_y * 0.78f;
-        set_entity_pos(runtime, id,
-                       cam.position.x + fx * dist + rx * ox + ux * oy,
-                       cam.position.y + fy * dist + uy * oy,
-                       cam.position.z + fz * dist + rz * ox + uz * oy);
-    };
-
-    place(hud_move_, -0.58f, -0.48f);
-    place(hud_look_, 0.48f, -0.18f);
-    place(hud_interact_, 0.75f, 0.58f);
-    place(hud_exit_, 0.75f, -0.58f);
-    runtime.scene().update_world_transforms();
+    // Retired: UiRenderer owns all screen-space visuals now.
+    (void)runtime;
 }
 
 } // namespace exworld

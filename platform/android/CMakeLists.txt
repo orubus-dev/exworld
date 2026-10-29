@@ -33,6 +33,7 @@ set(EXWORLD_SOURCES
   ${EXWORLD_ROOT}/src/animation_driver.cpp
   ${EXWORLD_ROOT}/src/sound_director.cpp
   ${EXWORLD_ROOT}/src/camera.cpp
+  ${EXWORLD_ROOT}/src/citygen.cpp
   ${EXWORLD_ROOT}/src/wanted.cpp
   ${EXWORLD_ROOT}/src/input.cpp
   ${EXWORLD_ROOT}/src/police.cpp
@@ -40,6 +41,7 @@ set(EXWORLD_SOURCES
   ${EXWORLD_ROOT}/src/save.cpp
   ${EXWORLD_ROOT}/src/asset_package.cpp
   ${EXWORLD_ROOT}/src/hud.cpp
+  ${EXWORLD_ROOT}/src/ui.cpp
   ${EXWORLD_ROOT}/src/visuals.cpp
 )
 

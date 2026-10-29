@@ -27,8 +27,19 @@ jobs:
       - name: Checkout EXGINE
         uses: actions/checkout@v4
         with:
-          repository: benjaminchume-droid/exgine
+          repository: orubus-dev/exgine
           path: exgine
+
+      - name: Bake real 3D mesh packages into content/baked
+        working-directory: exworld
+        run: |
+          set -euo pipefail
+          python3 tools/bake_real_meshes.py
+          test -f content/baked/building.exg
+          test -f content/baked/ground.exg
+          test -f content/baked/index.exg
+          echo "Baked mesh packages:"
+          wc -c content/baked/*.exg
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -63,11 +74,17 @@ jobs:
         run: |
           gradle --no-daemon clean assembleDebug -PEXGINE_ROOT="$EXGINE_ROOT"
 
-      - name: Verify APK
+      - name: Verify APK (hard requirements — no asset-less APKs)
         run: |
           APK="exworld/android/app/build/outputs/apk/debug/app-debug.apk"
           test -s "$APK"
-          unzip -l "$APK" | grep -E 'libexworld_android\.so|assets/project\.exg'
+          unzip -l "$APK" > /tmp/apk-list.txt
+          cat /tmp/apk-list.txt
+          grep -q 'libexworld_android\.so' /tmp/apk-list.txt
+          grep -q 'assets/project\.exg' /tmp/apk-list.txt
+          grep -q 'assets/scenes/exworld\.scene' /tmp/apk-list.txt
+          grep -q 'assets/baked/index\.exg' /tmp/apk-list.txt
+          echo "APK verified: native lib + all game assets present"
           ls -lh "$APK"
 
       - name: Upload APK

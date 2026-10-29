@@ -42,12 +42,14 @@ int main(int argc, char** argv) {
         std::cerr << "EXWORLD: failed to open game project\n";
         return 1;
     }
-    if (!game.start()) {
+    // Desktop validation: build the whole city, skip menu, drive gameplay.
+    game.debug_skip_menu();
+    if (!game.ready()) {
         std::cerr << "EXWORLD: failed to start\n";
         return 2;
     }
 
-    std::cout << "EXWORLD open+start OK (Sebastian + DawnOfLight)\n";
+    std::cout << "EXWORLD open+start OK (Sebastian + procedural city)\n";
 
     constexpr int kFrames = 300;
     exgine::RenderFrame frame;
@@ -65,6 +67,8 @@ int main(int argc, char** argv) {
             std::cerr << "render failed frame " << i << "\n";
             return 4;
         }
+        if (i % 120 == 0)
+            std::cout << "frame " << i << " draws=" << result.stats.submitted_draws << "\n";
     }
     std::cout << "EXWORLD validation passed frames=" << kFrames << "\n";
     return 0;

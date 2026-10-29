@@ -28,6 +28,7 @@ set(EXWORLD_SOURCES
   src/animation_driver.cpp
   src/sound_director.cpp
   src/camera.cpp
+  src/citygen.cpp
   src/wanted.cpp
   src/input.cpp
   src/police.cpp
@@ -35,6 +36,7 @@ set(EXWORLD_SOURCES
   src/save.cpp
   src/asset_package.cpp
   src/hud.cpp
+  src/ui.cpp
   src/visuals.cpp
 )
 

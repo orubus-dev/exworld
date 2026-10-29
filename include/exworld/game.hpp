@@ -10,12 +10,14 @@
 #include "exworld/sound_director.hpp"
 #include "exworld/wanted.hpp"
 #include "exworld/camera.hpp"
+#include "exworld/citygen.hpp"
 #include "exworld/input.hpp"
 #include "exworld/police.hpp"
 #include "exworld/interior.hpp"
 #include "exworld/save.hpp"
 #include "exworld/asset_package.hpp"
 #include "exworld/hud.hpp"
+#include "exworld/ui.hpp"
 #include "exworld/visuals.hpp"
 
 #include <string>
@@ -29,6 +31,11 @@ struct RenderResult;
 }
 
 namespace exworld {
+
+// Full game flow: loading (city build) -> main menu (cinematic) -> fly-in ->
+// gameplay -> pause. Fatal shows an on-screen boot error instead of a black
+// screen.
+enum class FlowState : std::uint8_t { Loading, Menu, FlyIn, Playing, Paused, Fatal };
 
 class ExWorldGame {
 public:
@@ -51,6 +58,7 @@ public:
     [[nodiscard]] bool load_from_file(const std::string& path);
 
     [[nodiscard]] bool ready() const noexcept { return ready_; }
+    [[nodiscard]] FlowState flow() const noexcept { return flow_; }
     [[nodiscard]] Player& player() noexcept { return player_; }
     [[nodiscard]] WantedSystem& wanted() noexcept { return wanted_; }
     [[nodiscard]] PoliceAI& police() noexcept { return police_; }
@@ -59,6 +67,9 @@ public:
     [[nodiscard]] AssetPackageRegistry& packages() noexcept { return packages_; }
     [[nodiscard]] Hud& hud() noexcept { return hud_; }
     [[nodiscard]] exgine::PlayableGame& engine() noexcept { return engine_; }
+
+    // Skips loading + menu straight into gameplay (desktop validation builds).
+    void debug_skip_menu() noexcept;
 
 private:
     exgine::ProjectSourceLoader loader_;
@@ -78,23 +89,50 @@ private:
     AssetPackageRegistry packages_;
     Hud hud_;
     VisualSystem visuals_;
+    UiRenderer ui_;
+    CityGenerator city_;
+
+    FlowState flow_ = FlowState::Loading;
+    std::string fatal_message_;
+    double time_ = 0.0;
+    float flow_time_ = 0.f;
+    bool ready_ = false;
+    bool configured_ = false;
+    bool engine_running_ = false;
+    bool cinematic_begun_ = false;
+    std::uint32_t frame_failures_ = 0;
+    std::uint64_t sun_light_ = 0;
+    std::string region_name_ = "CENTRAL PLAZA";
+    std::uint32_t screen_w_ = 1280;
+    std::uint32_t screen_h_ = 720;
+    exgine::Vec3 last_player_pos_{};
+    bool last_pos_valid_ = false;
+    float player_vel_x_ = 0.f, player_vel_z_ = 0.f;
+    float vehicle_yaw_ = 0.f;
 
     PlayerInput forced_input_{};
     bool use_forced_input_ = false;
-    bool ready_ = false;
-    bool configured_ = false;
-    double time_ = 0.0;
-    std::uint64_t sun_light_ = 0;
-    std::string region_name_ = "Downtown";
 
     [[nodiscard]] bool configure_systems();
     [[nodiscard]] bool spawn_world_content();
     [[nodiscard]] bool load_baked_packages();
-    void handle_interactions(float dt, exgine::Runtime& runtime);
+    [[nodiscard]] bool start_engine();
+    void register_city_content(exgine::Runtime& runtime);
+    void begin_menu();
+    void begin_gameplay();
+    void set_fatal(std::string message);
+    void handle_interactions(float dt, const PlayerInput& in, exgine::Runtime& runtime);
     void update_vehicle_possession(float dt, const PlayerInput& in, exgine::Runtime& runtime);
     void update_sky(exgine::Runtime& runtime);
-    void update_camera(exgine::Runtime& runtime);
+    void update_camera(float dt, const PlayerInput& in, exgine::Runtime& runtime);
+    void update_traffic_and_walkers(float dt, exgine::Runtime& runtime);
+    void resolve_player_collisions(exgine::Runtime& runtime);
     void update_region(const exgine::Vec3& pos);
+    void draw_ui(exgine::Runtime& runtime);
+    void draw_hud(exgine::Runtime& runtime);
+    void draw_minimap(exgine::Runtime& runtime, const exgine::Vec3& pos);
+    void draw_touch_controls(exgine::Runtime& runtime, bool in_vehicle);
+    void draw_star(UiRenderer& ui, float cx, float cy, float r, bool filled);
 };
 
 } // namespace exworld

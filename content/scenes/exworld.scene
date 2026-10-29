@@ -1,75 +1,32 @@
 game EXWORLD {
   world ExWorld {
-    terrain ExTerrain { amplitude = 22 seed = 60611 chunk_size = 32 resolution = 33 sea_level = -1 }
+    // Flat terrain: the procedural city sits on its own streets at y=0.
+    // Amplitude 0 keeps hills from poking through downtown.
+    terrain ExTerrain { amplitude = 0 seed = 60611 chunk_size = 32 resolution = 33 sea_level = 0 }
 
-    // === DOWNTOWN (origin, meters) ===
-    player Sebastian { x = 0 y = 1.8 z = 0 }
-    npc DawnOfLight { x = 3.2 y = 1.8 z = 2.5 }
+    player Sebastian { x = 0 y = 1.8 z = 12 }
+    npc DawnOfLight { x = 3.2 y = 1.8 z = 16 }
 
-    building Tower_A { x = 24 y = 0 z = -18 floors = 10 rooms = 6 doors = 2 windows = 20 stairs = 1 furniture = 12 seed = 101 }
-    building Tower_B { x = 24 y = 0 z = 22 floors = 8 rooms = 5 doors = 2 windows = 16 stairs = 1 furniture = 10 seed = 102 }
-    building Mall_C { x = -28 y = 0 z = 8 floors = 3 rooms = 8 doors = 3 windows = 14 stairs = 1 furniture = 14 seed = 103 }
-    building Office_D { x = -28 y = 0 z = -24 floors = 12 rooms = 4 doors = 2 windows = 24 stairs = 1 furniture = 8 seed = 104 }
-    building Hotel_E { x = 48 y = 0 z = 0 floors = 9 rooms = 6 doors = 2 windows = 18 stairs = 1 furniture = 10 seed = 105 }
-    building Garage_F { x = 8 y = 0 z = 40 floors = 2 rooms = 3 doors = 2 windows = 4 stairs = 0 furniture = 4 seed = 106 }
-    building Shop_G { x = -12 y = 0 z = 36 floors = 2 rooms = 4 doors = 1 windows = 8 stairs = 0 furniture = 6 seed = 107 }
-    building Shop_H { x = 12 y = 0 z = -40 floors = 2 rooms = 3 doors = 1 windows = 6 stairs = 0 furniture = 5 seed = 108 }
-    building Apt_I { x = 56 y = 0 z = 32 floors = 6 rooms = 5 doors = 2 windows = 12 stairs = 1 furniture = 8 seed = 109 }
-    building Apt_J { x = -48 y = 0 z = -8 floors = 5 rooms = 5 doors = 2 windows = 10 stairs = 1 furniture = 7 seed = 110 }
+    // === COUNTRYSIDE (outside the city grid, placed by hand) ===
 
-    vehicle Sedan_01 { x = 6 y = 0.4 z = 8 type = Car }
-    vehicle Sedan_02 { x = -10 y = 0.4 z = -6 type = Car }
-    vehicle Sports_01 { x = 14 y = 0.35 z = -20 type = SportsCar }
-    vehicle SUV_01 { x = -20 y = 0.45 z = 16 type = SUV }
-    vehicle Pickup_01 { x = 30 y = 0.5 z = 10 type = Pickup }
-    vehicle Sedan_03 { x = 40 y = 0.4 z = -12 type = Car }
-    vehicle SUV_02 { x = -36 y = 0.45 z = 28 type = SUV }
-
-    npc Ped_01 { x = 5 y = 1.8 z = 12 }
-    npc Ped_02 { x = -8 y = 1.8 z = -4 }
-    npc Ped_03 { x = 16 y = 1.8 z = 6 }
-    npc Ped_04 { x = -14 y = 1.8 z = 20 }
-    npc Cop_01 { x = 20 y = 1.8 z = 4 }
-    npc Cop_02 { x = -18 y = 1.8 z = -10 }
-    npc Cop_03 { x = 2 y = 1.8 z = -22 }
-
-    // === SUBURBS (~400m east) ===
-    building SubHouse_01 { x = 400 y = 0 z = 40 floors = 2 rooms = 5 doors = 1 windows = 8 stairs = 1 furniture = 8 seed = 201 }
-    building SubHouse_02 { x = 420 y = 0 z = 60 floors = 2 rooms = 4 doors = 1 windows = 7 stairs = 1 furniture = 6 seed = 202 }
-    building SubHouse_03 { x = 380 y = 0 z = 80 floors = 1 rooms = 4 doors = 1 windows = 6 stairs = 0 furniture = 5 seed = 203 }
-    building SubShop_01 { x = 440 y = 0 z = 20 floors = 2 rooms = 3 doors = 1 windows = 5 stairs = 0 furniture = 4 seed = 204 }
-    vehicle SubCar_01 { x = 405 y = 0.4 z = 48 type = Car }
-    vehicle SubSUV_01 { x = 425 y = 0.45 z = 55 type = SUV }
-    npc SubPed_01 { x = 410 y = 1.8 z = 50 }
-    npc SubPed_02 { x = 430 y = 1.8 z = 70 }
-
-    // === FOREST (~800m west, 450m north) ===
+    // Forest (~780m west, 440m north)
     building RangerCabin { x = -780 y = 0 z = 440 floors = 1 rooms = 3 doors = 1 windows = 4 stairs = 0 furniture = 4 seed = 301 }
     building ForestLodge { x = -820 y = 0 z = 480 floors = 2 rooms = 4 doors = 1 windows = 6 stairs = 1 furniture = 5 seed = 302 }
     vehicle ForestPickup { x = -775 y = 0.5 z = 448 type = Pickup }
     npc Hiker_01 { x = -790 y = 1.8 z = 455 }
     npc Hiker_02 { x = -810 y = 1.8 z = 470 }
 
-    // === LAKE (~650m east, -520m south) ===
+    // Lake (~640m east, 500m south)
     building LakesideDock { x = 640 y = 0 z = -500 floors = 1 rooms = 2 doors = 1 windows = 2 stairs = 0 furniture = 2 seed = 401 }
     building BoatHouse { x = 670 y = 0 z = -540 floors = 1 rooms = 3 doors = 1 windows = 3 stairs = 0 furniture = 3 seed = 402 }
     vehicle LakeSedan { x = 645 y = 0.4 z = -510 type = Car }
     npc Fisher_01 { x = 650 y = 1.8 z = -505 }
     npc Fisher_02 { x = 660 y = 1.8 z = -530 }
 
-    // === SWAMP (~-420, -720) ===
+    // Swamp (~-410, -710)
     building MarshShack { x = -410 y = 0 z = -710 floors = 1 rooms = 2 doors = 1 windows = 2 stairs = 0 furniture = 2 seed = 501 }
     building SwampHut { x = -450 y = 0 z = -740 floors = 1 rooms = 2 doors = 1 windows = 2 stairs = 0 furniture = 2 seed = 502 }
     vehicle SwampPickup { x = -415 y = 0.5 z = -715 type = Pickup }
     npc MarshPed_01 { x = -420 y = 1.8 z = -720 }
-
-    // Extra downtown density
-    building Warehouse_K { x = 70 y = 0 z = -50 floors = 2 rooms = 5 doors = 2 windows = 6 stairs = 0 furniture = 4 seed = 111 }
-    building Club_L { x = -60 y = 0 z = 50 floors = 3 rooms = 4 doors = 2 windows = 10 stairs = 1 furniture = 8 seed = 112 }
-    vehicle Van_01 { x = -5 y = 0.45 z = 28 type = SUV }
-    vehicle Sports_02 { x = 22 y = 0.35 z = 18 type = SportsCar }
-    npc Ped_05 { x = 9 y = 1.8 z = -8 }
-    npc Ped_06 { x = -22 y = 1.8 z = 12 }
-    npc Cop_04 { x = 35 y = 1.8 z = -5 }
   }
 }

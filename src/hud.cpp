@@ -18,13 +18,13 @@ void Hud::update(const Player& player, const WantedSystem& wanted, float speed_m
     state_.prompt.clear();
     if (player.mode() == PlayerMode::OnFoot) {
         state_.show_prompt = true;
-        state_.prompt = "E / Interact: vehicle or door";
+        state_.prompt = "TAP E - ENTER VEHICLE OR DOOR";
     } else if (state_.in_vehicle) {
         state_.show_prompt = true;
-        state_.prompt = "F / Exit vehicle";
+        state_.prompt = "TAP EXIT TO LEAVE VEHICLE";
     } else if (state_.in_building) {
         state_.show_prompt = true;
-        state_.prompt = "F / Exit building";
+        state_.prompt = "TAP EXIT TO LEAVE BUILDING";
     }
 }
 
