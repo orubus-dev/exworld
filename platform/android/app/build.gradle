@@ -56,7 +56,10 @@ android {
 
     sourceSets {
         main {
-            assets.srcDirs = ['generated-assets']
+            // generated-assets lives at the platform root (CI exgpack writes
+            // platform/android/generated-assets/world.exg); srcDirs are resolved
+            // relative to THIS module dir (platform/android/app/).
+            assets.srcDirs = ['../generated-assets']
         }
     }
 
