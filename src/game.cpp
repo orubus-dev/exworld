@@ -48,7 +48,8 @@ exgine::EntityId find_player_entity(exgine::Runtime& r) {
     return exgine::invalid_entity;
 }
 
-bool ensure_render_basics(exgine::Runtime& runtime, const exgine::Vec3& focus) {
+bool ensure_render_basics(exgine::Runtime& runtime, const exgine::Vec3& focus,
+                          std::uint64_t* out_sun = nullptr) {
     exgine::Camera cam;
     cam.position = {focus.x - 7.f, focus.y + 3.2f, focus.z + 7.f};
     cam.rotation = {-0.28f, 0.55f, 0.f};
@@ -65,7 +66,15 @@ bool ensure_render_basics(exgine::Runtime& runtime, const exgine::Vec3& focus) {
     sun.direction = {-0.45f, -0.78f, -0.2f};
     sun.color = {1.f, 0.92f, 0.78f};
     sun.intensity = 4.f;
-    (void)runtime.create_light(sun);
+    const auto sun_id = runtime.create_light(sun);
+    if (out_sun) *out_sun = sun_id;
+
+    // Distance fog matched to the sky; the sky/lighting itself is animated
+    // every frame by ExWorldGame::update_sky.
+    auto& settings = runtime.lighting().settings();
+    settings.fog.enabled = true;
+    settings.fog.color = {0.60f, 0.72f, 0.88f};
+    settings.fog.density = 0.0009f;
 
     (void)runtime.define_material(exgine::make_real_world_material("concrete", 11));
     (void)runtime.define_material(exgine::make_real_world_material("asphalt", 22));
@@ -149,7 +158,7 @@ bool ExWorldGame::configure_systems() {
     visuals_.set_packages(&packages_);
 
     const auto pos = player_.position(runtime);
-    if (!ensure_render_basics(runtime, pos)) {
+    if (!ensure_render_basics(runtime, pos, &sun_light_)) {
         std::cerr << "EXWORLD: render basics failed\n";
     }
 
@@ -305,11 +314,48 @@ void ExWorldGame::update_camera(exgine::Runtime& runtime) {
     camera_.update(1.f / 60.f, pos, in_veh, runtime);
 }
 
+void ExWorldGame::update_sky(exgine::Runtime& runtime) {
+    // Full day/night cycle in 8 real minutes. The engine's EnvironmentSystem
+    // already computed this data for years; nothing ever piped it into the
+    // renderer, so the sky was a hardcoded clear color.
+    constexpr float kDayLength = 480.f;
+    constexpr float kTwoPi = 6.2831853f;
+    const float t = std::fmod(static_cast<float>(time_) / kDayLength, 1.f);
+    const float raw = std::sin(t * kTwoPi);
+    const float day = std::clamp(raw * 1.6f + 0.1f, 0.f, 1.f);
+    const float dawn = std::clamp(1.f - std::abs(day - 0.18f) / 0.18f, 0.f, 1.f);
+
+    const float elev = 0.18f + day * 0.95f;
+    const float az = 0.7f + t * 1.5707963f;
+    if (sun_light_) {
+        if (exgine::Light* sun = runtime.lighting().get_light(sun_light_)) {
+            const float ce = std::cos(elev);
+            sun->direction = {-std::sin(az) * ce, -std::sin(elev), -std::cos(az) * ce};
+            sun->color = {1.f, 0.62f + 0.33f * day + 0.03f * dawn, 0.35f + 0.55f * day};
+            sun->intensity = 0.55f + day * 3.45f;
+        }
+    }
+
+    auto& settings = runtime.lighting().settings();
+    const float night_r = 0.02f + dawn * 0.55f;
+    const float night_g = 0.03f + dawn * 0.22f;
+    const float night_b = 0.07f + dawn * 0.10f;
+    settings.environment.sky_color = {
+        night_r + (0.47f - night_r) * day,
+        night_g + (0.66f - night_g) * day,
+        night_b + (0.94f - night_b) * day};
+    settings.environment.ambient_intensity = 0.10f + day * 0.30f;
+    settings.fog.enabled = true;
+    settings.fog.color = settings.environment.sky_color;
+    settings.fog.density = 0.00085f + (1.f - day) * 0.0004f;
+}
+
 bool ExWorldGame::update(double dt) noexcept {
     if (!ready_ || dt < 0.0) return false;
     time_ += dt;
     auto& runtime = engine_.session().game().runtime();
     PlayerInput in = use_forced_input_ ? forced_input_ : input_.poll();
+    update_sky(runtime);
 
     if (player_.valid()) {
         handle_interactions(static_cast<float>(dt), runtime);
@@ -357,7 +403,7 @@ bool ExWorldGame::present(exgine::AndroidEglPresenter& presenter, int width, int
     exgine::Renderer renderer({exgine::RenderBackend::OpenGLES, w, h, true, true, 256, 128});
     auto& rt = engine_.session().game().runtime();
     if (!renderer.build_frame(rt, frame)) {
-        (void)ensure_render_basics(rt, player_.valid() ? player_.position(rt) : exgine::Vec3{0, 2, 0});
+        (void)ensure_render_basics(rt, player_.valid() ? player_.position(rt) : exgine::Vec3{0, 2, 0}, &sun_light_);
         if (!renderer.build_frame(rt, frame)) return false;
     }
     if (!renderer.validate(frame)) return false;

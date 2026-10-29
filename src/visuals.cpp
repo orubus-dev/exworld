@@ -214,22 +214,17 @@ bool VisualSystem::ensure_buildings_vehicles(exgine::Runtime& runtime) {
     for (auto id : runtime.state().entities.ids()) {
         auto* e = runtime.state().entities.get(id);
         if (!e) continue;
-        if (e->kind == exgine::NodeKind::Building) {
-            bool baked = false;
-            if (packages_) {
-                exgine::MeshAssembly assembly;
-                baked = baked_assembly(packages_->get("building"), "concrete", assembly) &&
-                        runtime.attach_geometry(id, std::move(assembly));
-            }
-            if (!baked && (!e->geometry || !e->geometry->valid())) {
-                exgine::BuildingConfig cfg;
-                cfg.floors = 5;
-                cfg.floor_height = 3.0f;
-                cfg.width = 14.f;
-                cfg.depth = 12.f;
-                cfg.seed = 1000ull + static_cast<std::uint64_t>(id);
-                (void)runtime.generate_building(id, cfg);
-            }
+        // Buildings keep their hydrated procedural geometry (per-seed wall palette,
+        // door gaps, window glass, floors). The old code overwrote every building
+        // with one shared baked box, which is why the whole city rendered identical.
+        if (e->kind == exgine::NodeKind::Building && (!e->geometry || !e->geometry->valid())) {
+            exgine::BuildingConfig cfg;
+            cfg.floors = 5;
+            cfg.floor_height = 3.0f;
+            cfg.width = 14.f;
+            cfg.depth = 12.f;
+            cfg.seed = 1000ull + static_cast<std::uint64_t>(id);
+            (void)runtime.generate_building(id, cfg);
         }
         if (e->kind == exgine::NodeKind::Vehicle && (!e->geometry || !e->geometry->valid())) {
             auto cfg = exgine::make_vehicle_config(exgine::VehicleType::Car);

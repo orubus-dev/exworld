@@ -4,7 +4,10 @@ GTA-style open-world game on [EXGINE](https://github.com/benjaminchume-droid/exg
 
 **100% procedural.** No authored glTF characters, no high-res texture packs, no sampled audio banks required.
 
-## Status (v0.3 + Android packaging)
+Read the honest engineering audit: [`docs/VISION_AND_GAP.md`](docs/VISION_AND_GAP.md) —
+what we wanted, what actually shipped, and what got fixed in the visual-rescue pass.
+
+## Status (v0.4 — visual rescue pass)
 
 | System | State |
 |--------|--------|
@@ -12,11 +15,18 @@ GTA-style open-world game on [EXGINE](https://github.com/benjaminchume-droid/exg
 | VehicleDynamicsController possession | Done |
 | Character controller + 3rd person camera | Done |
 | Building doors + interior room nav | Done |
-| Wanted levels + police AI chase | Done |
+| Wanted levels + police AI chase | Done (police = 4 straight-line walkers; escalation is next) |
 | Real input (keyboard / gamepad / touch) | Done |
-| Save / load (player + wanted) | Done |
-| Dense city + streaming | Done |
+| Save / load (player + wanted) | Implemented (no trigger wired yet) |
+| Streaming terrain/water/vegetation | Done (city blocks + roads are the next system) |
+| **Per-seed materials: biome terrain, building facades, car paint, skin/clothing** | **Done** |
+| **Vehicles rotate with physics yaw; characters face movement** | **Done** |
+| **Day/night cycle + distance fog wired into lighting** | **Done** |
 | **Android NativeActivity + debug APK workflow** | **Done** |
+
+Still missing (ranked in the audit): roads/city blocks, sun shadow map, character
+animation (skeleton exists, driver disabled), readable HUD overlay, police escalation,
+save trigger.
 
 ## Android debug APK
 

@@ -84,6 +84,7 @@ private:
     bool ready_ = false;
     bool configured_ = false;
     double time_ = 0.0;
+    std::uint64_t sun_light_ = 0;
     std::string region_name_ = "Downtown";
 
     [[nodiscard]] bool configure_systems();
@@ -91,6 +92,7 @@ private:
     [[nodiscard]] bool load_baked_packages();
     void handle_interactions(float dt, exgine::Runtime& runtime);
     void update_vehicle_possession(float dt, const PlayerInput& in, exgine::Runtime& runtime);
+    void update_sky(exgine::Runtime& runtime);
     void update_camera(exgine::Runtime& runtime);
     void update_region(const exgine::Vec3& pos);
 };

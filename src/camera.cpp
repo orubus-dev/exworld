@@ -60,7 +60,9 @@ void GameCamera::update(float dt, const exgine::Vec3& target, bool in_vehicle,
     camera_.vertical_fov_degrees = in_vehicle ? 58.f : 55.f;
 
     (void)runtime.set_main_camera(camera_);
-    (void)world_render_.sync(runtime, target);
+    // NOTE: world streaming/sync lives in World::set_stream_focus exactly once per
+    // frame. This camera used to run a second WorldRenderBridge, duplicating every
+    // terrain chunk, water quad and physics heightfield.
 }
 
 } // namespace exworld

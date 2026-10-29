@@ -1,5 +1,6 @@
 #include "exworld/vehicle.hpp"
 
+#include <algorithm>
 #include <cmath>
 
 namespace exworld {
