@@ -49,6 +49,8 @@ bool read_asset(AAssetManager* m, std::string_view path, std::string& out) { std
 
 std::string normalize_asset_path(std::string_view path) { std::string p(path); while(p.rfind("./",0)==0)p.erase(0,2); if(p.rfind("content/",0)==0)p.erase(0,8); return p; }
 
+bool resolve_and_load(AAssetManager* m, const exgine::AssetDatabase* package, std::string_view path, std::string& out);
+
 bool resolve_and_load(AAssetManager* m, std::string_view path, std::string& out) {
     return resolve_and_load(m, static_cast<const exgine::AssetDatabase*>(nullptr), path, out);
 }
