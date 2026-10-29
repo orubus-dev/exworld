@@ -1,4 +1,4 @@
-name: EXWORLD Android Debug APK
+name: EXWORLD Android APK (debug + signed release)
 
 on:
   push:
@@ -8,9 +8,12 @@ on:
   workflow_dispatch:
 
 jobs:
-  android-debug:
+  android-build:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
+
+    env:
+      EXGINE_ROOT: ${{ github.workspace }}/exgine
 
     steps:
       - name: Checkout EXWORLD
@@ -91,7 +94,6 @@ jobs:
           echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
           echo "ANDROID_NDK_HOME=$NDK_DIR" >> "$GITHUB_ENV"
           echo "ANDROID_NDK_ROOT=$NDK_DIR" >> "$GITHUB_ENV"
-          echo "EXGINE_ROOT=${{ github.workspace }}/exgine" >> "$GITHUB_ENV"
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -105,17 +107,33 @@ jobs:
           echo "ndk.dir=$ANDROID_NDK_HOME" >> local.properties
           echo "EXGINE_ROOT=$EXGINE_ROOT"
           test -f "$EXGINE_ROOT/CMakeLists.txt"
-          ls -la "$EXGINE_ROOT" | head
 
-      - name: Build debug APK
-        working-directory: exworld/platform/android
+      - name: Materialize release keystore from secrets (optional)
         env:
-          EXGINE_ROOT: ${{ github.workspace }}/exgine
+          EXWORLD_KEYSTORE_B64: ${{ secrets.EXWORLD_KEYSTORE_B64 }}
+          EXWORLD_KEYSTORE_PASSWORD: ${{ secrets.EXWORLD_KEYSTORE_PASSWORD }}
+          EXWORLD_KEY_ALIAS: ${{ secrets.EXWORLD_KEY_ALIAS }}
+          EXWORLD_KEY_PASSWORD: ${{ secrets.EXWORLD_KEY_PASSWORD }}
+        working-directory: exworld/platform/android
         run: |
           set -euo pipefail
-          echo "EXGINE_ROOT=$EXGINE_ROOT"
-          test -f "$EXGINE_ROOT/CMakeLists.txt"
-          gradle --no-daemon --stacktrace --info :app:assembleDebug 2>&1 | tee /tmp/gradle-build.log
+          if [ -n "${EXWORLD_KEYSTORE_B64:-}" ]; then
+            echo "$EXWORLD_KEYSTORE_B64" | base64 -d > /home/runner/exworld-release.keystore
+            echo "EXWORLD_KEYSTORE_PATH=/home/runner/exworld-release.keystore" >> "$GITHUB_ENV"
+            test -n "${EXWORLD_KEYSTORE_PASSWORD:-}"
+            test -n "${EXWORLD_KEY_ALIAS:-}"
+            [ -n "${EXWORLD_KEY_PASSWORD:-}" ] || echo "EXWORLD_KEY_PASSWORD=$EXWORLD_KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+            echo "Release keystore materialized — APK will be signed with the release key"
+          else
+            echo "EXWORLD_KEYSTORE_B64 not set — release APK will fall back to the DEBUG key"
+          fi
+
+      - name: Build debug + release APKs
+        working-directory: exworld/platform/android
+        run: |
+          set -euo pipefail
+          gradle --no-daemon --stacktrace :app:assembleDebug :app:assembleRelease 2>&1 | tee /tmp/gradle-build.log
+          grep -E "EXWORLD Gradle EXGINE_ROOT|EXWORLD signing" /tmp/gradle-build.log || true
 
       - name: Dump native build logs on failure
         if: failure()
@@ -123,35 +141,43 @@ jobs:
         run: |
           echo "==== gradle tail ===="
           tail -200 /tmp/gradle-build.log || true
-          echo "==== cmakeError logs ===="
-          find . -name 'cmake*.log' -o -name '*.cpp.o.d' 2>/dev/null | head
           find app/.cxx -type f \( -name '*.txt' -o -name '*.log' \) 2>/dev/null | head -40
           find app/.cxx -name 'CMakeError.log' -exec echo '--- {} ---' \; -exec cat {} \; 2>/dev/null || true
-          find app/.cxx -name 'CMakeOutput.log' -exec tail -80 {} \; 2>/dev/null || true
-          find app/build -name '*.log' 2>/dev/null | head -20
 
-      - name: Verify native libs and baked assets inside APK
+      - name: Verify native libs, assets and signatures inside APKs
         working-directory: exworld/platform/android
         run: |
           set -euo pipefail
-          APK=$(find app/build/outputs/apk/debug -name '*.apk' | head -n 1)
-          test -n "$APK"
-          echo "APK: $APK ($(du -h "$APK" | cut -f1))"
-          unzip -l "$APK" | tee /tmp/apk-list.txt
-          grep -E 'lib/.*/libexworld_android\.so' /tmp/apk-list.txt
-          grep -E 'assets/world\.exg' /tmp/apk-list.txt
-          unzip -l "$APK" | grep 'baked/' || true
-          SIZE=$(stat -c%s "$APK")
-          echo "APK bytes=$SIZE"
-          if [ "$SIZE" -lt 500000 ]; then
-            echo "APK suspiciously small"
-            exit 1
-          fi
+          DEBUG_APK=$(find app/build/outputs/apk/debug -name '*.apk' | head -n 1)
+          RELEASE_APK=$(find app/build/outputs/apk/release -name '*.apk' | head -n 1)
+          test -n "$DEBUG_APK"
+          test -n "$RELEASE_APK"
+          echo "DEBUG APK:   $DEBUG_APK ($(du -h "$DEBUG_APK" | cut -f1))"
+          echo "RELEASE APK: $RELEASE_APK ($(du -h "$RELEASE_APK" | cut -f1))"
+          for APK in "$DEBUG_APK" "$RELEASE_APK"; do
+            unzip -l "$APK" > /tmp/apk-list.txt
+            grep -E 'lib/.*/libexworld_android\.so' /tmp/apk-list.txt
+            grep -E 'assets/world\.exg' /tmp/apk-list.txt
+            SIZE=$(stat -c%s "$APK")
+            echo "$APK bytes=$SIZE"
+            if [ "$SIZE" -lt 500000 ]; then echo "APK suspiciously small"; exit 1; fi
+          done
+          BT="$ANDROID_HOME/build-tools/35.0.0"
+          echo "==== release APK signature ===="
+          "$BT/apksigner" verify --print-certs "$RELEASE_APK" | head -6 || true
 
       - name: Upload debug APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: exworld-android-debug
           path: exworld/platform/android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload release APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: exworld-android-release
+          path: exworld/platform/android/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
           retention-days: 30

@@ -20,16 +20,16 @@ def exgineRoot = resolveExgineRoot()
 println "EXWORLD (android/) EXGINE_ROOT=${exgineRoot}"
 
 android {
-    namespace 'com.exworld.game'
+    namespace 'app.orubus.exworld'
     compileSdk 35
     ndkVersion '27.2.12479018'
 
     defaultConfig {
-        applicationId 'com.exworld.game'
+        applicationId 'app.orubus.exworld'
         minSdk 26
         targetSdk 35
-        versionCode 6
-        versionName '0.5.0'
+        versionCode 7
+        versionName '0.6.0'
         externalNativeBuild {
             cmake {
                 arguments "-DEXGINE_ROOT=${exgineRoot}",

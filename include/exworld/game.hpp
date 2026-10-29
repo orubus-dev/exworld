@@ -101,6 +101,9 @@ private:
     bool engine_running_ = false;
     bool cinematic_begun_ = false;
     std::uint32_t frame_failures_ = 0;
+    // On-screen render diagnostics (bottom-left of every screen).
+    bool diag_ok_ = false;
+    std::size_t diag_draws_ = 0, diag_skipped_ = 0, diag_culled_ = 0;
     std::uint64_t sun_light_ = 0;
     std::string region_name_ = "CENTRAL PLAZA";
     std::uint32_t screen_w_ = 1280;

@@ -311,9 +311,9 @@ void CityGenerator::build_ground() {
         }
     }
 
-    // Crosswalks near the center (roads k = 3..8)
-    for (int kx = 3; kx <= 8; ++kx) {
-        for (int kz = 3; kz <= 8; ++kz) {
+    // Crosswalks near the center (avenues flanking downtown)
+    for (int kx = kGrid / 2 - 2; kx <= kGrid / 2 + 3; ++kx) {
+        for (int kz = kGrid / 2 - 2; kz <= kGrid / 2 + 3; ++kz) {
             const float ix = road_line(kx), iz = road_line(kz);
             for (int i = -2; i <= 2; ++i) {
                 acc_quad_y("mark_white", ix + static_cast<float>(i) * 1.8f, 0.075f, iz + 4.9f, 1.1f, 2.0f);
@@ -611,10 +611,11 @@ void CityGenerator::flush_accumulators() {
 }
 
 void CityGenerator::build_extras() {
-    // Moving traffic on avenues (k = 3 and 8, both axes)
+    // Moving traffic on the two avenue pairs flanking downtown (grid-centered).
+    const int ka = kGrid / 2 - 2, kb = kGrid / 2 + 3;
     int traffic_id = 0;
     for (int axis = 0; axis < 2; ++axis) {
-        for (int k : {3, 8}) {
+        for (int k : {ka, kb}) {
             const float line = road_line(k);
             for (int lane = 0; lane < 2; ++lane) {
                 const float off = lane == 0 ? 2.9f : -2.9f;
@@ -642,8 +643,9 @@ void CityGenerator::build_extras() {
     // Pedestrians on downtown/commercial sidewalk loops + police presence
     int walker_id = 0;
     const int c = kGrid / 2;
-    for (int bi = 2; bi <= 8 && walker_id < 24; ++bi) {
-        for (int bj = 2; bj <= 8 && walker_id < 24; ++bj) {
+    const int lo = std::max(0, c - 3), hi = std::min(kGrid - 1, c + 3);
+    for (int bi = lo; bi <= hi && walker_id < 24; ++bi) {
+        for (int bj = lo; bj <= hi && walker_id < 24; ++bj) {
             const int dc = std::max(std::abs(bi - c), std::abs(bj - c));
             if (dc > 3) continue;
             const bool cop = (bi + bj) % 5 == 0 && walker_id % 4 == 0 && dc <= 2;

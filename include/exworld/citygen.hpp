@@ -60,7 +60,7 @@ public:
     [[nodiscard]] std::vector<CityVehicleUnit>& vehicles() noexcept { return vehicles_; }
     [[nodiscard]] std::vector<CityWalkerUnit>& walkers() noexcept { return walkers_; }
 
-    static constexpr int kGrid = 11;
+    static constexpr int kGrid = 16;
     static constexpr float kPitch = 64.f;
     static constexpr float kRoadW = 12.f;
     static constexpr float kBlock = kPitch - kRoadW;

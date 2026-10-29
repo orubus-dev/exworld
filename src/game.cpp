@@ -648,11 +648,49 @@ bool ExWorldGame::present(exgine::AndroidEglPresenter& presenter, int width, int
     exgine::RenderFrame frame;
     exgine::Renderer renderer({exgine::RenderBackend::OpenGLES, w, h, true, true, 256, 128});
     auto& rt = engine_.session().game().runtime();
+    // Fail-safe camera: a valid main camera is a hard prerequisite for
+    // build_frame; if the scene somehow lost it, restore a gameplay camera so
+    // the frame pipeline keeps producing images instead of freezing.
+    if (!rt.lighting().main_camera().valid()) {
+        exgine::Camera rescue;
+        rescue.position = {0.f, 60.f, 90.f};
+        rescue.rotation = {-0.5f, 0.f, 0.f};
+        rescue.vertical_fov_degrees = 55.f;
+        rescue.near_plane = 0.1f;
+        rescue.far_plane = 5000.f;
+        (void)rt.set_main_camera(rescue);
+    }
     if (!renderer.build_frame(rt, frame)) {
         (void)ensure_render_basics(rt, player_.valid() ? player_.position(rt) : exgine::Vec3{0, 2, 0},
                                    &sun_light_);
-        if (!renderer.build_frame(rt, frame)) return false;
+        if (!renderer.build_frame(rt, frame)) {
+            diag_ok_ = false;
+            // LAST RESORT: synthesize a minimal sky frame so the presenter
+            // keeps swapping. A frozen surface is worse than an empty sky.
+            frame = exgine::RenderFrame{};
+            frame.frame_id = 1;
+            frame.config = {exgine::RenderBackend::OpenGLES, w, h, true, true, 256, 128};
+            frame.camera = rt.lighting().main_camera();
+            if (!frame.camera.valid()) {
+                frame.camera.position = {0.f, 60.f, 90.f};
+                frame.camera.rotation = {-0.5f, 0.f, 0.f};
+                frame.camera.vertical_fov_degrees = 55.f;
+                frame.camera.near_plane = 0.1f;
+                frame.camera.far_plane = 5000.f;
+            }
+            const float aspect = h > 0 ? static_cast<float>(w) / static_cast<float>(h) : 1.7778f;
+            frame.view = exgine::make_view_matrix(frame.camera);
+            frame.projection = exgine::make_projection_matrix(frame.camera, aspect);
+            frame.view_projection = exgine::multiply(frame.projection, frame.view);
+            frame.lighting = rt.lighting().settings();
+            (void)presenter.present(frame);
+            return false;
+        }
     }
+    diag_ok_ = true;
+    diag_draws_ = frame.draws.size();
+    diag_skipped_ = frame.skipped_draws;
+    diag_culled_ = frame.culled_draws;
     if (!renderer.validate(frame)) return false;
     return presenter.present(frame);
 }
@@ -884,10 +922,16 @@ void ExWorldGame::draw_ui(exgine::Runtime& runtime) {
         ui.text(cw * 0.5f, 250.f, 130.f, "EXWORLD", UiColor::Accent, true, true);
         ui.text(cw * 0.5f, 350.f, 32.f, "ORUBUS OPEN WORLD", UiColor::Dim, true, true);
 
+        // Explicit START GAME button (tap anywhere also works).
         const bool pulse = std::fmod(flow_time_, 1.4f) < 1.0f;
-        ui.text(cw * 0.5f, ch - 210.f, 40.f, "TAP TO START",
-                pulse ? UiColor::White : UiColor::Dim, true, true);
-        ui.text(cw * 0.5f, ch - 150.f, 22.f, "V0.5.0 - PROCEDURAL CITY BUILD 7777",
+        const float bw = 640.f, bh = 104.f;
+        const float bx = cw * 0.5f - bw * 0.5f, by = ch - 320.f;
+        ui.rect(bx - 4.f, by - 4.f, bw + 8.f, bh + 8.f, UiColor::Black);
+        ui.rect(bx, by, bw, bh, pulse ? UiColor::Accent : UiColor::Panel);
+        ui.text(cw * 0.5f, by + bh * 0.5f, 44.f, "START GAME", UiColor::Black, true, true);
+        ui.hit_rect(bx - 40.f, by - 40.f, bx + bw + 40.f, by + bh + 40.f);
+
+        ui.text(cw * 0.5f, ch - 150.f, 22.f, "V0.6.0 - PROCEDURAL CITY BUILD 7777",
                 UiColor::Gray, true, true);
         ui.text(40.f, ch - 60.f, 20.f, "ORUBUS DEV", UiColor::Dim);
         ui.text(cw - 40.f, ch - 60.f, 20.f, "GLES3 - 60FPS", UiColor::Dim, true, false);
@@ -923,6 +967,18 @@ void ExWorldGame::draw_ui(exgine::Runtime& runtime) {
         ui.text(cw * 0.5f, 500.f, 24.f, "CLOSE AND REOPEN THE APP", UiColor::Dim, true, true);
         break;
     }
+    }
+
+    // Compact render diagnostics (production: always visible, bottom-left).
+    // Makes any GPU-side draw loss immediately observable on the device.
+    {
+        char db[64];
+        if (diag_ok_)
+            std::snprintf(db, sizeof(db), "DRAWS %zu | SKIP %zu | CULL %zu", diag_draws_,
+                          diag_skipped_, diag_culled_);
+        else
+            std::snprintf(db, sizeof(db), "RENDER DEGRADED - SKY ONLY");
+        ui.text(16.f, ui.canvas_h() - 22.f, 16.f, db, UiColor::Gray, false, false);
     }
 
     ui.end(runtime);

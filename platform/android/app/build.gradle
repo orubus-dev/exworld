@@ -1,5 +1,25 @@
 plugins { id 'com.android.application' }
 
+// EXWORLD release signing — fully env-var driven so CI and local builds share
+// one path:
+//   EXWORLD_KEYSTORE_PATH      absolute path to the .keystore file
+//   EXWORLD_KEYSTORE_PASSWORD  keystore password
+//   EXWORLD_KEY_ALIAS          key alias inside the keystore
+//   EXWORLD_KEY_PASSWORD       key password (defaults to keystore password)
+// When no keystore is configured the release build falls back to the debug
+// key so an installable APK is ALWAYS produced (clearly reported in the log).
+def envOr = { String envName, String prop = null ->
+    def v = System.getenv(envName)
+    if (v == null && prop != null) v = project.findProperty(prop)?.toString()
+    return v
+}
+
+def ksPath = envOr('EXWORLD_KEYSTORE_PATH')
+def ksPass = envOr('EXWORLD_KEYSTORE_PASSWORD')
+def keyAlias = envOr('EXWORLD_KEY_ALIAS')
+def keyPass = envOr('EXWORLD_KEY_PASSWORD')
+def hasReleaseKey = ksPath != null && file(ksPath).exists() && ksPass != null && keyAlias != null
+
 def resolveExgineRoot() {
     def env = System.getenv("EXGINE_ROOT")
     if (env != null && new File(env, "CMakeLists.txt").exists()) return env
@@ -11,24 +31,25 @@ def resolveExgineRoot() {
         file("${rootDir}/../../../../exgine").absolutePath
     ]
     for (c in candidates) {
-        if (new File(c, "CMakeLists.txt").exists()) return c
+        if (new File(c, 'CMakeLists.txt').exists()) return c
     }
     return file("../../../../exgine").absolutePath
 }
 
 def exgineRoot = resolveExgineRoot()
 println "EXWORLD Gradle EXGINE_ROOT=${exgineRoot}"
+println "EXWORLD signing: ${hasReleaseKey ? 'RELEASE keystore (' + ksPath + ', alias ' + keyAlias + ')' : 'DEBUG key (no env keystore configured)'}"
 
 android {
-    namespace 'com.exworld.game'
+    namespace 'app.orubus.exworld'
     compileSdk 35
 
     defaultConfig {
-        applicationId 'com.exworld.game'
+        applicationId 'app.orubus.exworld'
         minSdk 26
         targetSdk 35
-        versionCode 6
-        versionName '0.5.0'
+        versionCode 7
+        versionName '0.6.0'
         ndkVersion '27.2.12479018'
 
         externalNativeBuild {
@@ -43,6 +64,17 @@ android {
         }
     }
 
+    if (hasReleaseKey) {
+        signingConfigs {
+            release {
+                storeFile file(ksPath)
+                storePassword ksPass
+                keyAlias keyAlias
+                keyPassword (keyPass != null ? keyPass : ksPass)
+            }
+        }
+    }
+
     buildTypes {
         debug {
             debuggable true
@@ -51,6 +83,11 @@ android {
         release {
             minifyEnabled false
             debuggable false
+            if (hasReleaseKey) {
+                signingConfig signingConfigs.release
+            } else {
+                signingConfig signingConfigs.debug
+            }
         }
     }
 
