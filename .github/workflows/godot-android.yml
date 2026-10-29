@@ -59,25 +59,36 @@ jobs:
           godot --headless --path godot --import
           godot --headless --path godot res://scenes/game.tscn ++ --smoke
 
-      - name: Export Android APK
-        run: |
-          mkdir -p godot/build
-          godot --headless --path godot --export-release "Android" "$GITHUB_WORKSPACE/godot/build/exworld-unsigned.apk"
-          ls -la godot/build
-
-      - name: Sign APK (zipalign + apksigner)
+      - name: Prepare keystore + preset
         env:
           KS_B64: ${{ secrets.EXWORLD_KEYSTORE_B64 }}
           KS_PASS: ${{ secrets.EXWORLD_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.EXWORLD_KEY_ALIAS }}
           KEY_PASS: ${{ secrets.EXWORLD_KEY_PASSWORD }}
         run: |
-          echo "$KS_B64" | base64 -d > /tmp/release.jks
+          mkdir -p godot/build
+          echo "$KS_B64" | base64 -d > godot/build/release.jks
+          sed -i "s|^keystore/release=.*|keystore/release=\"$GITHUB_WORKSPACE/godot/build/release.jks\"|" godot/export_presets.cfg
+          sed -i "s|^keystore/release_user=.*|keystore/release_user=\"$KEY_ALIAS\"|" godot/export_presets.cfg
+          sed -i "s|^keystore/release_password=.*|keystore/release_password=\"$KEY_PASS\"|" godot/export_presets.cfg
+          grep "^keystore/" godot/export_presets.cfg | sed 's/password=.*/password=***MASKED***/'
+
+      - name: Export Android APK
+        run: |
+          godot --headless --path godot --export-release "Android" "$GITHUB_WORKSPACE/godot/build/exworld-unsigned.apk"
+          ls -la godot/build
+
+      - name: Finalize signature (zipalign + apksigner)
+        env:
+          KS_PASS: ${{ secrets.EXWORLD_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.EXWORLD_KEY_ALIAS }}
+          KEY_PASS: ${{ secrets.EXWORLD_KEY_PASSWORD }}
+        run: |
           BT="$(ls -d "${ANDROID_HOME}"/build-tools/* | sort -V | tail -1)"
           echo "using build-tools: $BT"
           "$BT/zipalign" -f 4 godot/build/exworld-unsigned.apk godot/build/exworld-aligned.apk
           "$BT/apksigner" sign \
-            --ks /tmp/release.jks \
+            --ks godot/build/release.jks \
             --ks-pass "pass:$KS_PASS" \
             --ks-key-alias "$KEY_ALIAS" \
             --key-pass "pass:$KEY_PASS" \
