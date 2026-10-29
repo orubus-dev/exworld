@@ -8,17 +8,19 @@ plugins { id 'com.android.application' }
 //   EXWORLD_KEY_PASSWORD       key password (defaults to keystore password)
 // When no keystore is configured the release build falls back to the debug
 // key so an installable APK is ALWAYS produced (clearly reported in the log).
-def envOr = { String envName, String prop = null ->
-    def v = System.getenv(envName)
-    if (v == null && prop != null) v = project.findProperty(prop)?.toString()
-    return v
+def ksPathEnv = System.getenv('EXWORLD_KEYSTORE_PATH')
+def ksPassEnv = System.getenv('EXWORLD_KEYSTORE_PASSWORD')
+def ksAliasEnv = System.getenv('EXWORLD_KEY_ALIAS')
+def ksKeyPassEnv = System.getenv('EXWORLD_KEY_PASSWORD')
+def ksFileEnv = null
+if (ksPathEnv != null) {
+    def f = new File(ksPathEnv)
+    if (f.exists()) ksFileEnv = f
 }
-
-def ksPath = envOr('EXWORLD_KEYSTORE_PATH')
-def ksPass = envOr('EXWORLD_KEYSTORE_PASSWORD')
-def keyAlias = envOr('EXWORLD_KEY_ALIAS')
-def keyPass = envOr('EXWORLD_KEY_PASSWORD')
-def hasReleaseKey = ksPath != null && file(ksPath).exists() && ksPass != null && keyAlias != null
+// NOTE: local vars deliberately avoid the names storePassword/keyAlias/keyPassword —
+// Groovy resolves a local variable over the delegate method and a shadowed
+// name would be invoked as String.call() during project evaluation.
+def hasReleaseKey = ksFileEnv != null && ksPassEnv != null && ksAliasEnv != null
 
 def resolveExgineRoot() {
     def env = System.getenv("EXGINE_ROOT")
@@ -38,7 +40,7 @@ def resolveExgineRoot() {
 
 def exgineRoot = resolveExgineRoot()
 println "EXWORLD Gradle EXGINE_ROOT=${exgineRoot}"
-println "EXWORLD signing: ${hasReleaseKey ? 'RELEASE keystore (' + ksPath + ', alias ' + keyAlias + ')' : 'DEBUG key (no env keystore configured)'}"
+println "EXWORLD signing: ${hasReleaseKey ? 'RELEASE keystore, alias ' + ksAliasEnv : 'DEBUG key (no env keystore configured)'}"
 
 android {
     namespace 'app.orubus.exworld'
@@ -67,10 +69,10 @@ android {
     if (hasReleaseKey) {
         signingConfigs {
             release {
-                storeFile file(ksPath)
-                storePassword ksPass
-                keyAlias keyAlias
-                keyPassword (keyPass != null ? keyPass : ksPass)
+                storeFile ksFileEnv
+                storePassword ksPassEnv
+                keyAlias ksAliasEnv
+                keyPassword (ksKeyPassEnv != null ? ksKeyPassEnv : ksPassEnv)
             }
         }
     }
