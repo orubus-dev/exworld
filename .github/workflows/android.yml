@@ -119,10 +119,15 @@ jobs:
           set -euo pipefail
           if [ -n "${EXWORLD_KEYSTORE_B64:-}" ]; then
             echo "$EXWORLD_KEYSTORE_B64" | base64 -d > /home/runner/exworld-release.keystore
+            # All four must be exported to GITHUB_ENV so the Gradle step sees them.
             echo "EXWORLD_KEYSTORE_PATH=/home/runner/exworld-release.keystore" >> "$GITHUB_ENV"
-            test -n "${EXWORLD_KEYSTORE_PASSWORD:-}"
-            test -n "${EXWORLD_KEY_ALIAS:-}"
-            [ -n "${EXWORLD_KEY_PASSWORD:-}" ] || echo "EXWORLD_KEY_PASSWORD=$EXWORLD_KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+            echo "EXWORLD_KEYSTORE_PASSWORD=$EXWORLD_KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+            echo "EXWORLD_KEY_ALIAS=$EXWORLD_KEY_ALIAS" >> "$GITHUB_ENV"
+            if [ -n "${EXWORLD_KEY_PASSWORD:-}" ]; then
+              echo "EXWORLD_KEY_PASSWORD=$EXWORLD_KEY_PASSWORD" >> "$GITHUB_ENV"
+            else
+              echo "EXWORLD_KEY_PASSWORD=$EXWORLD_KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+            fi
             echo "Release keystore materialized — APK will be signed with the release key"
           else
             echo "EXWORLD_KEYSTORE_B64 not set — release APK will fall back to the DEBUG key"
