@@ -78,35 +78,26 @@ jobs:
           godot --headless --path godot --export-release "Android" "$GITHUB_WORKSPACE/godot/build/exworld-unsigned.apk"
           ls -la godot/build
 
-      - name: Finalize signature (zipalign + apksigner)
-        env:
-          KS_PASS: ${{ secrets.EXWORLD_KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.EXWORLD_KEY_ALIAS }}
-          KEY_PASS: ${{ secrets.EXWORLD_KEY_PASSWORD }}
+      - name: Verify signature (read-only) + rename
         run: |
           BT="$(ls -d "${ANDROID_HOME}"/build-tools/* | sort -V | tail -1)"
           echo "using build-tools: $BT"
-          "$BT/zipalign" -f 4 godot/build/exworld-unsigned.apk godot/build/exworld-aligned.apk
-          "$BT/apksigner" sign \
-            --ks godot/build/release.jks \
-            --ks-pass "pass:$KS_PASS" \
-            --ks-key-alias "$KEY_ALIAS" \
-            --key-pass "pass:$KEY_PASS" \
-            --out godot/build/exworld-release.apk \
-            godot/build/exworld-aligned.apk
-          "$BT/apksigner" verify --print-certs godot/build/exworld-release.apk
-          VERSION=$(grep -oP '(?<=config/version=")[^"]*' godot/project.godot || echo 0.7.0)
-          cp godot/build/exworld-release.apk "godot/build/exworld-${VERSION}-app.orubus.exworld-release.apk"
+          # Godot already signed the APK with the release keystore (preset injection).
+          # We deliberately do NOT zipalign or re-sign — that mangles Godot's layout.
+          "$BT/apksigner" verify --print-certs godot/build/exworld-unsigned.apk
+          VERSION=$(grep -oP '(?<=config/version=")[^"]*' godot/project.godot || echo 0.7.1)
+          cp godot/build/exworld-unsigned.apk "godot/build/exworld-v${VERSION}.apk"
+          sha256sum "godot/build/exworld-v${VERSION}.apk"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: exworld-signed-apk
-          path: godot/build/exworld-*-release.apk
+          path: godot/build/exworld-v*.apk
           if-no-files-found: error
 
       - name: Attach to release (tags only)
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: godot/build/exworld-*-release.apk
+          files: godot/build/exworld-v*.apk
